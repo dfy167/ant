@@ -11,6 +11,8 @@ import (
 	"github.com/go-resty/resty"
 )
 
+var client *resty.Client
+
 type poiResult struct {
 	Code       int     `json:"code"`
 	EngDesc    string  `json:"engDesc"`
@@ -66,7 +68,8 @@ func requestPagePois(p point, pageNo int) (result poiResult, err error) {
 }
 
 func request(para map[string]string) (result poiResult, err error) {
-	resp, err := resty.
+	getClient()
+	resp, err := client.
 		SetTimeout(10 * time.Second).
 		SetRetryCount(5).
 		SetRetryWaitTime(10 * time.Second).
@@ -88,8 +91,18 @@ func request(para map[string]string) (result poiResult, err error) {
 	return
 }
 
+func getClient() {
+	client = resty.New()
+	setResty()
+	username := "I3E31659135705650222"
+	// 密码请到用户中心-我的订单页面查询
+	password := "RcO5dXEXpj9Akm2F"
+	proxyURL := fmt.Sprintf("http://%s:%s@dyn.horocn.com:50000", username, password)
+	client.SetProxy(proxyURL)
+}
+
 func setResty() {
-	resty.
+	client.
 		SetHeaders(map[string]string{
 			"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.84 Safari/537.36",
 			// "User-Agent" = "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13",
@@ -111,29 +124,40 @@ func main() {
 	//雨花区 https://www.fcbox.com/serviceNodeQuery/nearServiceNode?longitude=113.038017&latitude=28.13771&type=&pageNo=1&_=1582260373182
 	// 天心区 https://www.fcbox.com/serviceNodeQuery/nearServiceNode?longitude=112.9962&latitude=28.14447&type=&pageNo=1&_=1582260334125
 	// 芙蓉区 https://www.fcbox.com/serviceNodeQuery/nearServiceNode?longitude=113.032539&latitude=28.185386&type=&pageNo=2&_=1582254606574
+
+	// 株洲市
+	// 荷塘区 113.173487,27.855929
+	// 芦淞区 113.152724,27.785070
+	// 石峰区 113.117732,27.875445
+	// 天元区  113.082216,27.826867
+	// 株洲县 113.144006,27.699346
+	// 攸县 113.396404,27.014607
+	// 茶陵县 113.539280,26.777492
+	// 炎陵县 113.772655,26.489902
+	// 醴陵市 113.496894,27.646130
+	// 禄口区 113.134002,27.827550
+	// 云龙示范区 113.160642,27.903426
+
+	// 湘潭市
+	// 雨湖区 112.903317,27.854705
+	// 岳塘区 112.925371,27.808646
+	// 湘潭县 112.950781,27.778947
+	// 湘乡市 112.550581,27.718313
+	// 韶山市 112.526670,27.914958
 	// points := []point{}
-	setResty()
+
 	var p point
-	p = point{113.038017, 28.13771}
-	p = point{112.9962, 28.14447}
-	p = point{113.032539, 28.185386}
-	// fcbox, err := requestPagePois(p, 1)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	p = point{112.526670, 27.914958}
 
-	// maxPage := int(math.Ceil(fcbox.TotalCount / 10))
-
-	// for _, p := range fcbox.Content {
-	// 	p.print()
-	// }
 	maxPage := 40
-	for page := 15; page <= maxPage; page++ {
+	for page := 1; page <= maxPage; page++ {
+
 		fcbox2, err2 := requestPagePois(p, page)
 		if err2 != nil {
 			log.Fatal(err2)
 		}
 		fmt.Println(page, int(math.Ceil(fcbox2.TotalCount/10)))
+		maxPage = int(math.Ceil(fcbox2.TotalCount / 10))
 		for _, p := range fcbox2.Content {
 			p.print()
 		}
