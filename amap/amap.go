@@ -1,4 +1,4 @@
-package main
+package amap
 
 import (
 	"encoding/json"
@@ -11,11 +11,12 @@ import (
 	"github.com/go-resty/resty"
 )
 
-type poiResult struct {
+// PoiResult PoiResult
+type PoiResult struct {
 	Count      string `json:"count"`
 	Info       string `json:"info"`
 	Infocode   string `json:"infocode"`
-	Pois       []poi  `json:"pois"`
+	Pois       []Poi  `json:"pois"`
 	Status     string `json:"status"`
 	Suggestion struct {
 		Cities   []interface{} `json:"cities"`
@@ -23,7 +24,8 @@ type poiResult struct {
 	} `json:"suggestion"`
 }
 
-type poi struct {
+// Poi Poi
+type Poi struct {
 	Adcode  string `json:"adcode"`
 	Address string `json:"address"`
 	Adname  string `json:"adname"`
@@ -77,7 +79,7 @@ type poi struct {
 	Website   []interface{} `json:"website"`
 }
 
-func (p poi) String() string {
+func (p Poi) String() string {
 	return fmt.Sprintln(spaceD(p.ID), spaceD(p.Name), spaceD(p.Type), spaceD(p.Typecode), spaceD(p.Address), spaceD(p.Cityname), spaceD(p.Adname), spaceD(p.Location), spaceD(p.Alias))
 }
 
@@ -85,43 +87,45 @@ func spaceD(s string) string {
 	return strings.Join(strings.Fields(s), "")
 }
 
-type point struct {
+// Point Point
+type Point struct {
 	Lng float64
 	Lat float64
 }
 
-type rectangle struct {
-	PointLT point
-	PointRB point
+// Rectangle Rectangle
+type Rectangle struct {
+	PointLT Point
+	PointRB Point
 }
 
-func (r rectangle) check() bool {
+func (r Rectangle) check() bool {
 	return r.PointLT.Lng < r.PointRB.Lng && r.PointLT.Lat > r.PointRB.Lat
 }
 
-func (r rectangle) polygon() string {
+func (r Rectangle) polygon() string {
 	return fmt.Sprintf("%f,%f|%f,%f", r.PointLT.Lng, r.PointLT.Lat, r.PointRB.Lng, r.PointRB.Lat)
 }
 
-func (r rectangle) quadtree() []rectangle {
+func (r Rectangle) quadtree() []Rectangle {
 	halflng, halflat := math.Abs(r.PointRB.Lng-r.PointLT.Lng)/2, math.Abs(r.PointLT.Lat-r.PointRB.Lat)/2
 
-	return []rectangle{
-		rectangle{r.PointLT, point{round(r.PointLT.Lng + halflng), round(r.PointLT.Lat - halflat)}},
-		rectangle{point{round(r.PointLT.Lng + halflng), r.PointLT.Lat}, point{r.PointRB.Lng, round(r.PointLT.Lat - halflat)}},
-		rectangle{point{r.PointLT.Lng, round(r.PointLT.Lat - halflat)}, point{round(r.PointLT.Lng + halflng), r.PointRB.Lat}},
-		rectangle{point{round(r.PointLT.Lng + halflng), round(r.PointLT.Lat - halflat)}, r.PointRB}}
+	return []Rectangle{
+		{r.PointLT, Point{round(r.PointLT.Lng + halflng), round(r.PointLT.Lat - halflat)}},
+		{Point{round(r.PointLT.Lng + halflng), r.PointLT.Lat}, Point{r.PointRB.Lng, round(r.PointLT.Lat - halflat)}},
+		{Point{r.PointLT.Lng, round(r.PointLT.Lat - halflat)}, Point{round(r.PointLT.Lng + halflng), r.PointRB.Lat}},
+		{Point{round(r.PointLT.Lng + halflng), round(r.PointLT.Lat - halflat)}, r.PointRB}}
 }
 
 type minRec struct {
-	Rec   rectangle
+	Rec   Rectangle
 	Types string
 	Count int
 	Err   error
 }
 
 type minRecPage struct {
-	Rec   rectangle
+	Rec   Rectangle
 	Types string
 	Page  string
 }
@@ -138,7 +142,7 @@ var key = "aaa8abdaf05433e3702eae99964cc8c6"
 
 // var key = "935c7385f239000f98ade53bbbc002e7"
 
-func cutRec(rec rectangle, types string) (recCutresult []minRec) {
+func cutRec(rec Rectangle, types string) (recCutresult []minRec) {
 	count, err := recCount(rec, types)
 	if err != nil {
 		fmt.Println(rec, types, count, err)
@@ -156,7 +160,7 @@ func cutRec(rec rectangle, types string) (recCutresult []minRec) {
 	return
 }
 
-func recCount(rec rectangle, types string) (count int, err error) {
+func recCount(rec Rectangle, types string) (count int, err error) {
 	para := map[string]string{
 		"types":   types,
 		"offset":  "1",
@@ -173,7 +177,7 @@ func recCount(rec rectangle, types string) (count int, err error) {
 	return
 }
 
-func minRecPagePois(minRecPage minRecPage) (pois []poi, err error) {
+func minRecPagePois(minRecPage minRecPage) (pois []Poi, err error) {
 	para := map[string]string{
 		"types":   minRecPage.Types,
 		"offset":  "20",
@@ -188,7 +192,7 @@ func minRecPagePois(minRecPage minRecPage) (pois []poi, err error) {
 	return
 }
 
-func minRecPagesPois(minRecPages []minRecPage) (pois []poi) {
+func minRecPagesPois(minRecPages []minRecPage) (pois []Poi) {
 	for _, minRecPage := range minRecPages {
 		pagePois, err := minRecPagePois(minRecPage)
 		if err == nil {
@@ -214,19 +218,20 @@ func minRecsPages(mRecs []minRec) (mrp []minRecPage) {
 	return
 }
 
-func recTypePages(rec rectangle, types string) (mrp []minRecPage) {
+func recTypePages(rec Rectangle, types string) (mrp []minRecPage) {
 	cutrec := cutRec(rec, types)
 	mrp = minRecsPages(cutrec)
 	return
 }
 
-func recTypePois(rec rectangle, types string) (pois []poi) {
+// RecTypePois RecTypePois
+func RecTypePois(rec Rectangle, types string) (pois []Poi) {
 	pages := recTypePages(rec, types)
 	pois = minRecPagesPois(pages)
 	return
 }
 
-func recRequest(para map[string]string) (result poiResult, err error) {
+func recRequest(para map[string]string) (result PoiResult, err error) {
 	para["key"] = key
 	resp, err := resty.
 		SetTimeout(10 * time.Second).
@@ -250,7 +255,8 @@ func recRequest(para map[string]string) (result poiResult, err error) {
 	return
 }
 
-type detail struct {
+// Detail Detail
+type Detail struct {
 	Status string `json:"status"`
 	Data   struct {
 		Base struct {
@@ -380,26 +386,7 @@ type detail struct {
 	} `json:"data"`
 }
 
-func setResty() {
-	resty.
-		SetHeaders(map[string]string{
-			"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.84 Safari/537.36",
-			// "User-Agent" = "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13",
-			"Accept":          "*/*",
-			"Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh-TW;q=0.7,zh;q=0.6",
-			// "Accept-Encoding":"gzip,deflate",
-			"Accept-Charset":   "GB2312,utf-8;q=0.7,*;q=0.7",
-			"Keep-Alive":       "115",
-			"Connection":       "keep-alive",
-			"X-Requested-With": "XMLHttpRequest",
-		}).
-		SetTimeout(10 * time.Second).
-		SetRetryCount(5).
-		SetRetryWaitTime(10 * time.Second).
-		SetRetryMaxWaitTime(65 * time.Second)
-}
-
-func requestDetail(id string) (result detail, err error) {
+func requestDetail(id string) (result Detail, err error) {
 	resp, err := resty.
 		R().
 		SetQueryParams(map[string]string{"id": id}).
@@ -418,7 +405,7 @@ func requestDetail(id string) (result detail, err error) {
 	return
 }
 
-func requestDetails(ids []string) (result []detail) {
+func requestDetails(ids []string) (result []Detail) {
 	for _, id := range ids {
 		r, err1 := requestDetail(id)
 		if err1 == nil {
@@ -426,83 +413,6 @@ func requestDetails(ids []string) (result []detail) {
 		}
 	}
 	return
-}
-
-func main() {
-	setResty()
-	recChangSha := rectangle{point{111.89, 28.66}, point{114.24, 27.85}}
-	// recChangSha = rectangle{point{111.89, 28.66}, point{112.00, 28.00}}
-	// recChangSha = rectangle{point{108, 31}, point{115, 24}}
-	// 长沙株洲湘潭
-	recChangSha = rectangle{point{111.89, 28.66}, point{114.24, 26.14}}
-
-	types := []string{}
-	// types = []string{"010000", "020000", "030000", "040000", "050000", "060000", "070000", "080000", "090000", "100000", "110000", "120000", "130000", "140000", "150000", "160000", "170000", "180000", "190000", "200000", "220000", "970000", "990000"}
-	// types = []string{"110000", "120000", "130000", "140000", "150000"}
-	// types = []string{"010000", "020000", "030000", "040000", "050000", "060000", "070000", "080000", "090000", "100000"}
-	// types = []string{"160000", "170000", "180000", "190000", "200000", "220000", "970000", "990000"}
-	// types = []string{"010000"}
-	types = []string{"070000"}
-	var pois []poi
-	for _, typess := range types {
-		pois = append(pois, recTypePois(recChangSha, typess)...)
-	}
-	fmt.Println(pois)
-
-	// maxRoutineNum := 1
-	// ch := make(chan string, maxRoutineNum)
-	// fi, err := os.Open("id.txt")
-	// if err != nil {
-	// 	fmt.Printf("Error: %s\n", err)
-	// 	return
-	// }
-	// defer fi.Close()
-	// var ids []string
-	// br := bufio.NewReader(fi)
-	// for {
-	// 	a, _, c := br.ReadLine()
-	// 	if c == io.EOF {
-	// 		break
-	// 	}
-	// 	ids = append(ids, string(a))
-	// }
-	// for _, id := range ids {
-	// 	ch <- id
-	// 	go printResult(id, ch)
-	// }
-	// time.Sleep(10 * time.Second)
-
-	// fi, err := os.Open("id.txt")
-	// if err != nil {
-	// 	fmt.Printf("Error: %s\n", err)
-	// 	return
-	// }
-	// defer fi.Close()
-	// var ids []string
-	// br := bufio.NewReader(fi)
-	// for {
-	// 	a, _, c := br.ReadLine()
-	// 	if c == io.EOF {
-	// 		break
-	// 	}
-	// 	ids = append(ids, string(a))
-	// }
-	// for _, id := range ids {
-	// 	r, err := requestDetail(id)
-	// 	if err == nil {
-	// 		fmt.Println(id, r.Data.Spec.MiningShape.Shape, "type:"+strconv.Itoa(r.Data.Spec.MiningShape.Type), "sptype:"+r.Data.Spec.MiningShape.SpType)
-	// 	} else if r.Status == "6" {
-	// 		fmt.Println(id, "err:toofast")
-	// 		break
-
-	// 	} else if r.Status == "8" {
-	// 		fmt.Println(id, "err:notfounddetail")
-	// 	} else {
-	// 		fmt.Println(id, "err"+r.Status, err)
-	// 		break
-	// 	}
-	// }
-
 }
 
 func printResult(id string, ch chan string) {
